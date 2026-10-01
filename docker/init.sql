@@ -1,0 +1,1 @@
+CREATE DATABASE running_test_db;
