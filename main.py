@@ -66,28 +66,6 @@ def get_me(
     return current_user
 
 
-def get_training_or_404(
-    session: Session,
-    training_id: int
-):
-    training = session.get(
-        Training,
-        training_id
-    )
-
-    if training is None:
-        logger.warning(
-            'Training not found:id=%s',
-            training_id
-        )
-
-        raise HTTPException(
-            status_code=404,
-            detail="Training not found"
-        )
-
-    return training
-
 @app.get(
     "/trainings",
     response_model=TrainingPage
@@ -264,45 +242,19 @@ def get_athlete(
 )
 def get_training_plan(
     plan_id: int,
-    session: Session = Depends(get_db)
-):
-    plan = session.get(
-        TrainingPlan,
-        plan_id
+    session: Session = Depends(get_db),
+    current_user: User = Depends(
+        get_current_user
     )
-
-    if plan is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Training plan not found"
-        )
+):
+    plan = get_owned_plan_or_404(
+        session,
+        plan_id,
+        current_user.id
+    )
 
     return plan
 
-@app.get("/athletes/{athlete_id}/trainings")
-def get_athlete_trainings(
-    athlete_id: int,
-    session: Session = Depends(get_db)
-):
-    athlete = session.get(
-        Athlete,
-        athlete_id
-    )
-
-    if athlete is None:
-        raise HTTPException(
-            status_code=404,
-            detail="Athlete not found"
-        )
-
-    return {
-        "athlete": athlete.name,
-        "training_count": len(athlete.trainings),
-        "distances": [
-            training.distance
-            for training in athlete.trainings
-        ]
-    }
 
 @app.post(
     "/trainings",
@@ -502,12 +454,16 @@ def login(
 def update_training(
     training_id:int,
     new_data:TrainingCreate,
-    session:Session = Depends(get_db)
+    session:Session = Depends(get_db),
+    current_user: User = Depends(
+        get_current_user
+    )
 ):
     
-    db_training = get_training_or_404(
+    db_training = get_owned_training_or_404(
             session,
-            training_id
+            training_id,
+            current_user.id
         )
 
     data = new_data.model_dump()
